@@ -1,4 +1,4 @@
-name: React Vite CI
+name: React CI Pipeline
 
 on:
   push:
@@ -6,62 +6,31 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write # Needed for gh pr create
+  pull-requests: write
 
 jobs:
-  lint-test-and-pr:
-    # This condition skips the job if the commit message starts with "ci:",
-    # which is useful for preventing infinite loops if your PR creation itself triggers a new CI run.
+  lint-and-pr:
     if: "!startsWith(github.event.head_commit.message, 'ci:')"
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Needed for gh cli to check PRs correctly
+          fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '20' # Specify your project's Node.js version
-          cache: 'npm' # Cache npm dependencies to speed up subsequent runs
+          node-version: '20'
 
-      - name: Install dependencies
-        run: npm ci # Use npm ci for clean and reproducible builds, based on package-lock.json
+      - run: npm ci
 
-      - name: Run ESLint
-        # Assumes you have an "lint" script in your package.json, e.g., "eslint src/**/*.{js,jsx,ts,tsx}"
-        run: npm run lint
+      - run: npm run lint
 
-      - name: Run Tests
-        # Assumes you have a "test" script in your package.json, e.g., "vitest run" or "jest --ci"
-        # The --ci flag for Jest or 'run' for Vitest is often useful in CI environments.
-        run: npm test
-
-      - name: Build React Vite app
-        # Assumes you have a "build" script in your package.json, e.g., "vite build"
-        run: npm run build
-
-      - name: Create Pull Request if none exists
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Automatically provided by GitHub Actions
+      - env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Install GitHub CLI (gh)
-          sudo apt-get update
-          sudo apt-get install -y gh
-
-          # Use gh pr list to check for existing PRs
-          # We're looking for an open PR from 'dev' to 'main'.
           PR_COUNT=$(gh pr list --base main --head dev --json number | jq 'length')
-
           if [ "$PR_COUNT" -eq 0 ]; then
-            echo "No existing pull request found from dev to main. Creating a new one."
-            gh pr create \
-              --base main \
-              --head dev \
-              --title "ci: Auto PR from dev to main" \
-              --body "This PR was automatically created by the CI pipeline after successful linting, testing, and build on the \`dev\` branch."
+            gh pr create --base main --head dev --title "Auto PR: Merge dev into main (React App)" --body "This PR was automatically created by the CI pipeline after successful lint checks on the dev branch for the React application."
           else
             echo "An open pull request from dev to main already exists. No new PR will be created."
           fi
